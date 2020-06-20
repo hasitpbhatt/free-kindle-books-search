@@ -13,14 +13,21 @@ import (
 	"golang.org/x/net/html"
 )
 
-const _maxPagesToScroll = 243 // can't be more than 400
+const _maxPagesToScroll = 12 // can't be more than 400
 
 var (
 	_jar       = &cookiejar.Jar{}
-	_m         = map[string]string{}
+	_m         = map[string]book{}
 	_purchased = map[string]bool{}
 	_invalid   = map[string]bool{}
 )
+
+type book struct {
+	asin  string
+	href  string
+	title string
+	stars string
+}
 
 func init() {
 	jar, err := cookiejar.New(&cookiejar.Options{})
@@ -47,7 +54,7 @@ func fill(path string, m map[string]bool) {
 	}
 }
 
-const base = "https://www.amazon.in/s?i=digital-text&bbn=1634753031&rh=n%3A1571277031%2Cn%3A1571278031%2Cn%3A1634753031%2Cp_n_feature_three_browse-bin%3A11301931031%2Cp_36%3A-1%2Cp_72%3A1318476031&dc&fst=as%3Aoff&qid=1592140199&rnid=1318475031&ref=sr_nr_p_72_1"
+const base = "https://www.amazon.in/s?i=digital-text&bbn=1637026031&rh=n%3A1571277031%2Cn%3A1634753031%2Cn%3A1637026031%2Cn%3A1637027031%2Cp_36%3A-1&dc&qid=1592652345&rnid=1637026031&ref=sr_nr_n_1"
 
 func main() {
 	c := &http.Client{
@@ -57,47 +64,36 @@ func main() {
 	for i := 1; i <= _maxPagesToScroll; i++ {
 		fmt.Printf("%d,", i)
 		b := foo(c, int64(i))
-		// fmt.Println(i)
 		// b, err := ioutil.ReadFile("page" + strconv.FormatInt(int64(i), 10) + ".html")
 		// if err != nil {
 		// 	panic(err)
 		// }
-		if err := parse(b); err != nil {
+		if err := parse2(b); err != nil {
 			panic(err)
 		}
 		// time.Sleep(4 * time.Second)
 	}
 	fmt.Println()
-	for k, v := range _m {
-		if !_purchased[k] && !_invalid[k] {
-			fmt.Println(k, fmt.Sprintf("https://amazon.in/dp/%s", k), v)
-		}
+	for _, book := range _m {
+		fmt.Println(book.title)
+		fmt.Println(book.href, book.stars)
+		fmt.Println("----------------------")
 	}
 }
 
-func parse(b []byte) error {
+func parse2(b []byte) error {
 	n, err := html.Parse(bytes.NewBuffer(b))
 	if err != nil {
 		return err
 	}
 	var f func(*html.Node)
 	f = func(n *html.Node) {
-		if n.Parent != nil && n.Data == "img" {
-			parent := n.Parent
-			if parent.Data == "div" && parent.Parent != nil {
-				grandParent := parent.Parent
-				if grandParent.Data == "a" {
-					alt := ""
-					for _, a := range n.Attr {
-						if a.Key == "alt" {
-							alt = a.Val
-							break
-						}
-					}
-					if alt != "" {
-						getIDFromLink(grandParent, alt)
-					}
+		if n.Data == "div" {
+			if book := getBook(n); book != nil {
+				if !_purchased[book.asin] && !_invalid[book.asin] {
+					_m[book.asin] = *book
 				}
+				return
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -108,15 +104,50 @@ func parse(b []byte) error {
 	return nil
 }
 
-func getIDFromLink(n *html.Node, alt string) {
+func getBook(n *html.Node) *book {
+	var asin *string
+	asin = getString(n, "data-asin")
+	if asin == nil {
+		return nil
+	}
+	c := n.FirstChild                                     // div [{ class sg-col-inner}]
+	l := c.FirstChild.NextSibling                         // span [{ cel_widget_id MAIN-SEARCH_RESULTS} { class celwidget slot=MAIN template=SEARCH_RESULTS widgetId=search-results}]
+	m := l.FirstChild.NextSibling                         // div [{ class s-include-content-margin s-border-bottom s-latency-cf-section}]
+	p := m.FirstChild.NextSibling                         // div [{ class a-section a-spacing-medium}]
+	g := p.FirstChild.NextSibling                         // empty row
+	g = g.NextSibling.NextSibling                         // original row : div [{ class sg-row}]
+	q := g.FirstChild.NextSibling.NextSibling.NextSibling // div [{ class sg-col-4-of-12 sg-col-8-of-16 sg-col-16-of-24 sg-col-12-of-20 sg-col-24-of-32 sg-col sg-col-28-of-36 sg-col-20-of-28}]
+	// print("q", q)
+	t := q.FirstChild // div [{ class sg-col-inner}]
+	// print("t", t)
+	k := t.FirstChild.NextSibling
+	k1 := k.FirstChild.NextSibling
+	k2 := k1.FirstChild
+	k3 := k2.FirstChild.NextSibling // div [{ class a-section a-spacing-none}]
+	k4 := k3.FirstChild.NextSibling.FirstChild.NextSibling
+	href := getString(k4, "href")
+
+	b := &book{
+		asin:  *asin,
+		href:  "https://amazon.in" + *href,
+		title: k4.FirstChild.NextSibling.FirstChild.Data,
+	}
+	if k3.NextSibling.NextSibling != nil {
+		k31 := k3.NextSibling.NextSibling // div [{ class a-section a-spacing-none a-spacing-top-micro}]
+		k32 := k31.FirstChild.NextSibling.FirstChild.NextSibling
+		stars := getString(k32, "aria-label")
+		b.stars = *stars
+	}
+	return b
+}
+
+func getString(n *html.Node, name string) *string {
 	for _, a := range n.Attr {
-		if a.Key == "href" && strings.Contains(a.Val, "/dp/") {
-			v := strings.Split(a.Val, "/ref")
-			v = strings.Split(v[0], "/dp/")
-			_m[v[1]] = alt
-			break
+		if a.Key == name && a.Val != "" {
+			return &a.Val
 		}
 	}
+	return nil
 }
 
 func foo(c *http.Client, page int64) (bytes []byte) {
