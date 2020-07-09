@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const _maxPagesToScroll = 12 // can't be more than 400
+const _maxPagesToScroll = 400 // can't be more than 400
 
 var (
 	_jar       = &cookiejar.Jar{}
@@ -54,7 +54,7 @@ func fill(path string, m map[string]bool) {
 	}
 }
 
-const base = "https://www.amazon.in/s?i=digital-text&bbn=1637026031&rh=n%3A1571277031%2Cn%3A1634753031%2Cn%3A1637026031%2Cn%3A1637027031%2Cp_36%3A-1&dc&qid=1592652345&rnid=1637026031&ref=sr_nr_n_1"
+const base = "https://www.amazon.in/s?i=digital-text&bbn=1634753031&rh=n%3A1571277031%2Cn%3A1571278031%2Cn%3A1634753031%2Cp_36%3A-1%2Cp_n_feature_three_browse-bin%3A10837939031%7C10837942031%7C11301931031%2Cp_72%3A1318476031&dc&qid=1594215302&rnid=1318475031&ref=sr_nr_p_72_1"
 
 func main() {
 	c := &http.Client{
