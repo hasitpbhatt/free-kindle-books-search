@@ -40,9 +40,10 @@ var (
 )
 
 var config = struct {
-	CSRF         string `yaml:"csrf"`
-	CSRFCheckout string `yaml:"csrfCheckout"`
-	Cookies      string `yaml:"cookies"`
+	CSRF            string `yaml:"csrf"`
+	CSRFCheckout    string `yaml:"csrfCheckout"`
+	Cookies         string `yaml:"cookies"`
+	CookiesCheckout string `yaml:"cookiesCheckout"`
 }{}
 
 type book struct {
@@ -85,7 +86,7 @@ func checkout() {
 		`-H`,
 		`'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.100 Safari/537.36'`,
 		`-H`,
-		fmt.Sprintf(`$'%s'`, config.Cookies),
+		fmt.Sprintf(`$'%s'`, strings.TrimRight(config.CookiesCheckout, "\n")),
 		`--data`,
 		fmt.Sprintf(`'csrf=%s&x-client-id=ebook-cart&payment.mode=checkout&proceedToCheckout=1'`, config.CSRFCheckout),
 		`--compressed`,
@@ -227,7 +228,7 @@ func main() {
 	}
 	checkout()
 	for i := startPage; i <= maxPagesToScroll; i++ {
-		fmt.Println("%d,", i)
+		fmt.Println("Page: ", i)
 		b := foo(c, int64(i))
 		if err := parse2(b); err != nil {
 			panic(err)
