@@ -200,7 +200,7 @@ func getNumberOfPages(c *http.Client) int {
 	if err != nil {
 		log.Fatal(err)
 	}
-	d = goquery.NewDocumentFromNode(d.Find(".a-pagination").Get(0).LastChild.PrevSibling.PrevSibling)
+	d = goquery.NewDocumentFromNode(d.Find(".s-pagination-container").Get(0).FirstChild.LastChild.PrevSibling)
 	htmlD, _ := d.Html()
 	pages, _ := strconv.Atoi(htmlD)
 	fmt.Println("Max pages found to be:", pages)
